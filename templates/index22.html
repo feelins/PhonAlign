@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Alignment Tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"], textarea, input[type="file"] {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        textarea {
+            height: 100px;
+            resize: vertical;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .error {
+            color: #d32f2f;
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: #ffebee;
+            border-radius: 4px;
+        }
+        .results {
+            margin-top: 30px;
+            border-top: 1px solid #ddd;
+            padding-top: 20px;
+        }
+        .visualization {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            margin-top: 20px;
+        }
+        .visualization img {
+            max-width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .download-links {
+            margin-top: 20px;
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        .download-links a {
+            display: inline-block;
+            margin-right: 15px;
+            color: #4CAF50;
+            text-decoration: none;
+            font-weight: bold;
+            padding: 8px 12px;
+            border: 1px solid #4CAF50;
+            border-radius: 4px;
+        }
+        .download-links a:hover {
+            background-color: #e8f5e9;
+        }
+        .viz-container {
+            background-color: #fafafa;
+            padding: 15px;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .viz-title {
+            margin-top: 0;
+            color: #2e7d32;
+        }
+        .form-container {
+            background-color: #f5f5f5;
+            padding: 20px;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2e7d32;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Audio Alignment Tool</h1>
+    
+    {% if error %}
+        <div class="error">{{ error }}</div>
+    {% endif %}
+    
+    <div class="form-container">
+        <form method="post" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="audio_file">Audio File (WAV/MP3):</label>
+                <input type="file" id="audio_file" name="audio_file" accept=".wav,.mp3" required>
+                <small>Maximum file size: 16MB</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="text_content">Text Content:</label>
+                <textarea id="text_content" name="text_content" placeholder="Enter the text to align with the audio" required></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="output_name">Output Name (without extension):</label>
+                <input type="text" id="output_name" name="output_name" value="output" required>
+                <small>This will be used as the base name for the TextGrid file</small>
+            </div>
+            
+            <button type="submit">Align Audio and Text</button>
+        </form>
+    </div>
+    
+    {% if results %}
+    <div class="results">
+        <h2>Alignment Results</h2>
+        
+        <div class="download-links">
+            <h3>Download Results:</h3>
+            <a href="{{ url_for('download_file', unique_id=results.unique_id, filename=results.textgrid_file) }}" download>
+                Download TextGrid File
+            </a>
+            <a href="{{ url_for('download_file', unique_id=results.unique_id, filename=results.audio_file) }}" download>
+                Download Original Audio
+            </a>
+        </div>
+        
+        <div class="visualization">
+            <div class="viz-container">
+                <h3 class="viz-title">Audio Spectrogram</h3>
+                <img src="{{ url_for('download_file', unique_id=results.unique_id, filename=results.spectrogram) }}" 
+                     alt="Audio spectrogram visualization">
+                <p>This spectrogram shows the frequency content of your audio over time.</p>
+            </div>
+            
+            <div class="viz-container">
+                <h3 class="viz-title">TextGrid Alignment Visualization</h3>
+                <img src="{{ url_for('download_file', unique_id=results.unique_id, filename=results.textgrid_viz) }}" 
+                     alt="TextGrid alignment visualization">
+                <p>This visualization shows how the text aligns with the audio, with time boundaries for each segment.</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</body>
+</html>
