@@ -187,7 +187,7 @@ def perform_alignment(audio_path, text_content, output_path, logger=None):
         if logger:
             logger.info(f'Alignment completed in {total_time:.2f} seconds')
         
-        return True
+        return True, total_time
     except Exception as e:
         if logger:
             logger.error(f'Alignment failed: {str(e)}')
@@ -232,7 +232,7 @@ def index():
             
             # Perform alignment
             logger.info('Starting alignment process')
-            success = perform_alignment(audio_path, text_content, output_path, logger)
+            success, processing_time = perform_alignment(audio_path, text_content, output_path, logger)
             
             if not success:
                 return jsonify({'error': 'Alignment failed'}), 500
@@ -247,6 +247,7 @@ def index():
             # Prepare results
             results = {
                 'status': 'success',
+                'processing_time': f'{processing_time:.2f}',  # 格式化为2位小数
                 'audio_file': audio_filename,
                 'textgrid_file': f'{output_name}.TextGrid',
                 'spectrogram': 'spectrogram.png',
@@ -259,6 +260,62 @@ def index():
         except Exception as e:
             logger.error(f'Error in processing: {str(e)}')
             return jsonify({'error': f'Processing failed: {str(e)}'}), 500
+        
+@app.route('/calculate_duration/', methods=['POST'])
+def calculate_duration():
+    """计算目录下所有音频文件的时长"""
+    try:
+        directory_path = request.form.get('directory_path', '').strip()
+        
+        if not directory_path:
+            return jsonify({"status": "error", "message": "目录路径不能为空"})
+        
+        if not os.path.isdir(directory_path):
+            return jsonify({"status": "error", "message": "目录不存在或不可访问"})
+        
+        # 支持的音频格式
+        audio_extensions = ('.wav', '.mp3', '.ogg', '.flac')
+        total_seconds = 0
+        file_count = 0
+        error_files = []
+        
+        start_time = time.time()
+        
+        for root, _, files in os.walk(directory_path):
+            for file in files:
+                if file.lower().endswith(audio_extensions):
+                    file_path = os.path.join(root, file)
+                    try:
+                        # 使用librosa获取音频时长
+                        duration = librosa.get_duration(filename=file_path)
+                        total_seconds += duration
+                        file_count += 1
+                    except Exception as e:
+                        error_files.append({
+                            "filename": file_path,
+                            "error": str(e)
+                        })
+                        logger.error(f"处理文件 {file_path} 时出错: {str(e)}")
+        
+        # 计算总小时数
+        total_hours = total_seconds / 3600
+        
+        return jsonify({
+            "status": "success",
+            "directory_path": directory_path,
+            "total_duration_seconds": total_seconds,
+            "total_duration_hours": total_hours,
+            "file_count": file_count,
+            "error_files": error_files,
+            "processing_time": time.time() - start_time
+        })
+        
+    except Exception as e:
+        logger.error(f"计算时长时出错: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        })
 
 @app.route('/download/<unique_id>/<filename>')
 def download_file(unique_id, filename):
