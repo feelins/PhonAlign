@@ -71,6 +71,20 @@ def setup_logger(log_dir):
     
     return logger
 
+def resample_audio(input_path, output_path, target_sr=16000, res_type='kaiser_best'):
+    # 加载音频（保留原始采样率）
+    y, orig_sr = librosa.load(input_path, sr=None)
+    
+    # 重采样
+    y_resampled = librosa.resample(y, orig_sr=orig_sr, 
+                                 target_sr=target_sr,
+                                 res_type=res_type)
+    
+    # 保存
+    sf.write(output_path, y_resampled, target_sr)
+    
+    return y_resampled, target_sr
+
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
@@ -132,10 +146,16 @@ def visualize_textgrid(textgrid_path, audio_path, output_path):
                 end = parselmouth.praat.call(textgrid, "Get end point", tier_idx, interval)
                 
                 plt.hlines(y=tier_idx-1, xmin=start, xmax=end, 
-                            linewidth=10, color='dodgerblue', alpha=0.7)
+                            linewidth=40, color='dodgerblue', alpha=0.7)
                 plt.text((start + end)/2, tier_idx-1, label, 
-                        ha='center', va='center',
+                        ha='center', va='center',fontsize=12,
                         bbox=dict(facecolor='white', alpha=0.8, pad=1))
+                # 在每个interval的结尾处添加红色垂直线
+                if label == '[SIL]':
+                    plt.vlines(x=start, ymin=tier_idx-1.5, ymax=tier_idx-0.5,  # 调整ymin/ymax可以控制线的高度
+                            colors='red', linewidth=2, linestyles='solid')
+                    plt.vlines(x=end, ymin=tier_idx-1.5, ymax=tier_idx-0.5,  # 调整ymin/ymax可以控制线的高度
+                            colors='red', linewidth=2, linestyles='solid')
         
         plt.yticks(y_ticks, y_labels)
         plt.xlabel("Time (s)")
@@ -227,12 +247,14 @@ def index():
             audio_filename = secure_filename(audio_file.filename)
             audio_path = os.path.join(upload_dir, audio_filename)
             audio_file.save(audio_path)
+            tmp_audio_path = os.path.join(upload_dir, 'tmp.wav')
             
             output_path = os.path.join(upload_dir, f'{output_name}.TextGrid')
             
             # Perform alignment
             logger.info('Starting alignment process')
-            success, processing_time = perform_alignment(audio_path, text_content, output_path, logger)
+            resampled_audio, sr = resample_audio(audio_path, tmp_audio_path, 16000)
+            success, processing_time = perform_alignment(tmp_audio_path, text_content, output_path, logger)
             
             if not success:
                 return jsonify({'error': 'Alignment failed'}), 500
