@@ -23,38 +23,6 @@ from concurrent.futures import ThreadPoolExecutor
 from collections import defaultdict
 import json
 
-cur_root = os.path.split(os.path.realpath(__file__))[0]
-sys.path.append(os.path.join(cur_root, 'src'))
-
-
-# 设置matplotlib使用支持中文的字体
-try:
-    # 尝试使用系统已有的中文字体
-    plt.rcParams['font.sans-serif'] = ['SimHei']  # Windows
-    # plt.rcParams['font.sans-serif'] = ['Arial Unicode MS']  # Mac
-    # plt.rcParams['font.sans-serif'] = ['Noto Sans CJK JP']  # Linux
-    plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
-except:
-    # 如果找不到上述字体，尝试使用内置的DejaVu Sans
-    plt.rcParams['font.sans-serif'] = ['DejaVu Sans']
-    plt.rcParams['axes.unicode_minus'] = False
-
-app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024 * 100  # 100MB limit for batch
-app.config['ALLOWED_EXTENSIONS'] = {'wav', 'mp3'}
-app.config['BATCH_TEMP_EXPIRE'] = 3600 * 6  # 6小时临时文件过期时间
-app.config['MAX_WORKERS'] = 4  # 最大并发工作线程数
-
-# 确保上传目录存在
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-
-# 全局线程池
-executor = ThreadPoolExecutor(max_workers=app.config['MAX_WORKERS'])
-
-# 任务状态存储
-batch_jobs = {}
-
 def setup_logger(log_dir):
     level = logging.INFO
     stamp = int(time.time())
@@ -352,6 +320,62 @@ def process_batch_zip(zip_path, output_dir, output_prefix, job_id, logger=None):
         if logger:
             logger.error(f"Batch processing failed: {str(e)}")
 
+
+def cleanup_temp_files():
+    """清理过期的临时文件"""
+    batch_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'batch')
+    if not os.path.exists(batch_dir):
+        return
+    
+    now = time.time()
+    for job_id in os.listdir(batch_dir):
+        job_dir = os.path.join(batch_dir, job_id)
+        if os.path.isdir(job_dir):
+            # 检查目录是否过期
+            dir_time = os.path.getmtime(job_dir)
+            if now - dir_time > app.config['BATCH_TEMP_EXPIRE']:
+                try:
+                    shutil.rmtree(job_dir)
+                    # 同时从内存中删除任务记录
+                    if job_id in batch_jobs:
+                        del batch_jobs[job_id]
+                except Exception as e:
+                    print(f"Failed to cleanup {job_dir}: {str(e)}")
+
+cur_root = os.path.split(os.path.realpath(__file__))[0]
+sys.path.append(os.path.join(cur_root, 'src'))
+
+
+# 设置matplotlib使用支持中文的字体
+try:
+    # 尝试使用系统已有的中文字体
+    plt.rcParams['font.sans-serif'] = ['SimHei']  # Windows
+    # plt.rcParams['font.sans-serif'] = ['Arial Unicode MS']  # Mac
+    # plt.rcParams['font.sans-serif'] = ['Noto Sans CJK JP']  # Linux
+    plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
+except:
+    # 如果找不到上述字体，尝试使用内置的DejaVu Sans
+    plt.rcParams['font.sans-serif'] = ['DejaVu Sans']
+    plt.rcParams['axes.unicode_minus'] = False
+
+app = Flask(__name__)
+app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024 * 100  # 100MB limit for batch
+app.config['ALLOWED_EXTENSIONS'] = {'wav', 'mp3'}
+app.config['BATCH_TEMP_EXPIRE'] = 3600 * 6  # 6小时临时文件过期时间
+app.config['MAX_WORKERS'] = 4  # 最大并发工作线程数
+
+# 确保上传目录存在
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+# 全局线程池
+executor = ThreadPoolExecutor(max_workers=app.config['MAX_WORKERS'])
+
+# 任务状态存储
+batch_jobs = {}
+logger = setup_logger('logs')
+
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'GET':
@@ -376,10 +400,6 @@ def index():
         unique_id = str(uuid.uuid4())
         upload_dir = os.path.join(app.config['UPLOAD_FOLDER'], unique_id)
         os.makedirs(upload_dir, exist_ok=True)
-        
-        # Setup logger
-        log_dir = os.path.join('./', 'logs')
-        logger = setup_logger(log_dir)
         
         try:
             # Save uploaded file
@@ -447,9 +467,7 @@ def batch_align():
         # 获取表单数据
         output_prefix = request.form.get('output_prefix', 'batch_output')
         upload_type = request.form.get('uploadType', 'zip')
-        
-        log_dir = os.path.join('./', 'logs')
-        logger = setup_logger(log_dir)
+
         logger.info(f'Starting batch alignment job {job_id}')
         
         # 处理ZIP上传
@@ -597,14 +615,14 @@ def calculate_duration():
         error_files = []
         
         start_time = time.time()
-        
+        logger.info('processing ' + directory_path)
         for root, _, files in os.walk(directory_path):
             for file in files:
                 if file.lower().endswith(audio_extensions):
                     file_path = os.path.join(root, file)
                     try:
                         # 使用librosa获取音频时长
-                        duration = librosa.get_duration(filename=file_path)
+                        duration = librosa.get_duration(path=file_path)
                         total_seconds += duration
                         file_count += 1
                     except Exception as e:
@@ -642,26 +660,7 @@ def download_file(unique_id, filename):
         as_attachment=True
     )
 
-def cleanup_temp_files():
-    """清理过期的临时文件"""
-    batch_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'batch')
-    if not os.path.exists(batch_dir):
-        return
-    
-    now = time.time()
-    for job_id in os.listdir(batch_dir):
-        job_dir = os.path.join(batch_dir, job_id)
-        if os.path.isdir(job_dir):
-            # 检查目录是否过期
-            dir_time = os.path.getmtime(job_dir)
-            if now - dir_time > app.config['BATCH_TEMP_EXPIRE']:
-                try:
-                    shutil.rmtree(job_dir)
-                    # 同时从内存中删除任务记录
-                    if job_id in batch_jobs:
-                        del batch_jobs[job_id]
-                except Exception as e:
-                    print(f"Failed to cleanup {job_dir}: {str(e)}")
+
 
 if __name__ == '__main__':
     # 启动时清理旧文件
