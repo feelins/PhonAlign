@@ -23,6 +23,21 @@ from concurrent.futures import ThreadPoolExecutor
 from collections import defaultdict
 import json
 
+cur_root = os.path.split(os.path.realpath(__file__))[0]
+sys.path.append(os.path.join(cur_root, 'src'))
+
+align_object = None
+def load_model():
+    global align_object
+    # Initialize model
+    from Charsiu import charsiu_forced_aligner, charsiu_predictive_aligner
+    cur_root = os.path.dirname(os.path.realpath(__file__))
+    pre_model_path = os.path.join(cur_root, 'pretrained_model')
+    pre_model = 'pretrained_model/charsiu-zh_w2v2_tiny_fc_10ms'
+
+    align_object = charsiu_forced_aligner(aligner=pre_model, lang='zh')
+
+
 def setup_logger(log_dir):
     level = logging.INFO
     stamp = int(time.time())
@@ -163,23 +178,12 @@ def perform_alignment(audio_path, text_content, output_path, logger=None):
         logger.info('Starting alignment process')
     
     try:
-        # Initialize model
-        from Charsiu import charsiu_forced_aligner, charsiu_predictive_aligner
-        cur_root = os.path.dirname(os.path.realpath(__file__))
-        pre_model_path = os.path.join(cur_root, 'pretrained_model')
-        pre_model = 'pretrained_model/charsiu-zh_w2v2_tiny_fc_10ms'
-        
-        if logger:
-            logger.info(f'Loading model from: {pre_model}')
-        
-        charsiu = charsiu_forced_aligner(aligner=pre_model, lang='zh')
-        
         if logger:
             logger.info(f'Performing alignment for: {audio_path}')
             logger.info(f'Text content: {text_content[:50]}...')
         
         # Perform alignment
-        charsiu.serve(audio=audio_path, text=text_content, save_to=output_path)
+        align_object.serve(audio=audio_path, text=text_content, save_to=output_path)
         
         if logger:
             logger.info(f'Alignment saved to: {output_path}')
@@ -252,30 +256,14 @@ def process_batch_item(audio_path, text_path, output_dir, output_prefix, job_id,
         })
         return False
 
-def process_batch_zip(zip_path, output_dir, output_prefix, job_id, logger=None):
-    """处理ZIP格式的批量上传"""
+def process_batch(afiles, tfiles, output_dir, output_prefix, job_id, logger=None):
+    """处理批量上传的文件"""
     try:
-        # 解压ZIP文件
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall(output_dir)
-        
-        # 收集音频和文本文件
-        audio_files = []
-        text_files = []
-        
-        for root, _, files in os.walk(output_dir):
-            for file in files:
-                file_lower = file.lower()
-                if file_lower.endswith(('.wav', '.mp3')):
-                    audio_files.append(os.path.join(root, file))
-                elif file_lower.endswith('.txt'):
-                    text_files.append(os.path.join(root, file))
-        
         # 创建文件对 (音频文件 -> 对应的文本文件)
         file_pairs = []
-        for audio_file in audio_files:
+        for audio_file in afiles:
             base_name = os.path.splitext(os.path.basename(audio_file))[0]
-            matching_text = next((t for t in text_files 
+            matching_text = next((t for t in tfiles 
                                if os.path.splitext(os.path.basename(t))[0] == base_name), None)
             if matching_text:
                 file_pairs.append((audio_file, matching_text))
@@ -290,19 +278,9 @@ def process_batch_zip(zip_path, output_dir, output_prefix, job_id, logger=None):
         # 更新总任务数
         batch_jobs[job_id]['total'] = len(file_pairs)
         
-        # 使用线程池处理文件对
-        futures = []
         for audio_path, text_path in file_pairs:
-            future = executor.submit(
-                process_batch_item, 
-                audio_path, text_path, output_dir, output_prefix, job_id, logger
-            )
-            futures.append(future)
-        
-        # 等待所有任务完成
-        for future in futures:
-            future.result()
-        
+            process_batch_item(audio_path, text_path, output_dir, output_prefix, job_id, logger)
+
         # 创建结果ZIP
         result_zip_path = os.path.join(output_dir, f"{output_prefix}_results.zip")
         with zipfile.ZipFile(result_zip_path, 'w') as zipf:
@@ -342,8 +320,7 @@ def cleanup_temp_files():
                 except Exception as e:
                     print(f"Failed to cleanup {job_dir}: {str(e)}")
 
-cur_root = os.path.split(os.path.realpath(__file__))[0]
-sys.path.append(os.path.join(cur_root, 'src'))
+
 
 
 # 设置matplotlib使用支持中文的字体
@@ -364,6 +341,8 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024 * 100  # 100MB limit for bat
 app.config['ALLOWED_EXTENSIONS'] = {'wav', 'mp3'}
 app.config['BATCH_TEMP_EXPIRE'] = 3600 * 6  # 6小时临时文件过期时间
 app.config['MAX_WORKERS'] = 4  # 最大并发工作线程数
+
+
 
 # 确保上传目录存在
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -402,6 +381,7 @@ def index():
         os.makedirs(upload_dir, exist_ok=True)
         
         try:
+            load_model()
             # Save uploaded file
             audio_filename = secure_filename(audio_file.filename)
             audio_path = os.path.join(upload_dir, audio_filename)
@@ -464,6 +444,8 @@ def batch_align():
             'output_dir': upload_dir
         }
         
+        load_model()
+
         # 获取表单数据
         output_prefix = request.form.get('output_prefix', 'batch_output')
         upload_type = request.form.get('uploadType', 'zip')
@@ -481,20 +463,28 @@ def batch_align():
             
             zip_path = os.path.join(upload_dir, 'batch_files.zip')
             zip_file.save(zip_path)
+
+            # 解压ZIP文件
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(upload_dir)
+
+            # 收集音频和文本文件
+            audio_files = []
+            text_files = []
             
-            # 在后台处理ZIP文件
-            executor.submit(
-                process_batch_zip,
-                zip_path, upload_dir, output_prefix, job_id, logger
-            )
-            
-        # 处理分别上传的音频和文本文件
+            for root, _, files in os.walk(upload_dir):
+                for file in files:
+                    file_lower = file.lower()
+                    if file_lower.endswith(('.wav', '.mp3')):
+                        audio_files.append(os.path.join(root, file))
+                    elif file_lower.endswith('.txt'):
+                        text_files.append(os.path.join(root, file))
+
+            process_batch(audio_files, text_files, upload_dir, output_prefix, job_id, logger)
         elif upload_type == 'dir' and 'batch_files' in request.files:
-            # 保存上传的文件
+            # 处理分别上传的音频和文本文件
             uploaded_files = request.files.getlist('batch_files')
-            
-            # 创建文件对 (音频文件 -> 对应的文本文件)
-            file_pairs = []
+
             audio_files = []
             text_files = []
             
@@ -508,32 +498,8 @@ def batch_align():
                     audio_files.append(filepath)
                 elif filename.lower().endswith('.txt'):
                     text_files.append(filepath)
-            
-            # 配对文件
-            for audio_path in audio_files:
-                base_name = os.path.splitext(os.path.basename(audio_path))[0]
-                matching_text = next((t for t in text_files 
-                                   if os.path.splitext(os.path.basename(t))[0] == base_name), None)
-                if matching_text:
-                    file_pairs.append((audio_path, matching_text))
-                else:
-                    batch_jobs[job_id]['error_count'] += 1
-                    batch_jobs[job_id]['results'].append({
-                        'status': 'error',
-                        'filename': base_name,
-                        'error': f"No matching text file found for {audio_path}"
-                    })
-            
-            # 更新总任务数
-            batch_jobs[job_id]['total'] = len(file_pairs)
-            
-            # 使用线程池处理文件对
-            for audio_path, text_path in file_pairs:
-                executor.submit(
-                    process_batch_item, 
-                    audio_path, text_path, upload_dir, output_prefix, job_id, logger
-                )
-        
+
+            process_batch(audio_files, text_files, upload_dir, output_prefix, job_id, logger)
         else:
             return jsonify({'error': 'Invalid upload type or missing files'}), 400
         
@@ -575,13 +541,8 @@ def batch_status(job_id):
     }
     
     # 如果任务完成，添加结果ZIP信息
-    if job['status'] in ['completed', 'success'] and job.get('result_zip'):
+    if job['status'] in ['completed'] and job.get('result_zip'):
         response['result_zip'] = job['result_zip']
-    
-    # 如果所有任务已完成但状态未更新（保险机制）
-    # if job['status'] == 'processing' and job['processed'] >= job['total']:
-    #     job['status'] = 'completed'
-    #     response['status'] = 'completed'
     
     return jsonify(response)
 

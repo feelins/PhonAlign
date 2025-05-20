@@ -141,7 +141,7 @@
                                 </div>
                             </div>
 
-                            <!-- 上传部分修改为目录 -->
+                            <!-- 分别上传部分修改为目录 -->
                             <div id="dirUploadSection" style="display: none;">
                                 <div class="mb-3">
                                     <label for="batchDirPath" class="form-label fw-bold">选择目录</label>
@@ -440,21 +440,6 @@
 
         // 新增批量处理相关JavaScript
         document.addEventListener('DOMContentLoaded', function() {
-            // 切换上传方式
-            document.querySelectorAll('input[name="uploadType"]').forEach(radio => {
-                radio.addEventListener('change', function() {
-                    const zipSection = document.getElementById('zipUploadSection');
-                    const filesSection = document.getElementById('filesUploadSection');
-                    
-                    if (this.value === 'zip') {
-                        zipSection.style.display = 'block';
-                        filesSection.style.display = 'none';
-                    } else {
-                        zipSection.style.display = 'none';
-                        filesSection.style.display = 'block';
-                    }
-                });
-            });
 
             // 修改上传方式切换逻辑
             document.querySelectorAll('input[name="uploadType"]').forEach(radio => {
@@ -497,15 +482,28 @@
                 const uploadType = document.querySelector('input[name="uploadType"]:checked').value;
                 formData.delete('batch_dir'); // 清除之前的字段
 
+                // 根据上传类型处理不同输入
+                if (uploadType === 'zip') {
+                    const zipFile = document.getElementById('batchZipFile').files[0];
+                    if (!zipFile) {
+                        alert('请选择ZIP文件');
+                        submitBtn.disabled = false;
+                        spinner.classList.add('d-none');
+                        return;
+                    }
+                    formData.append('batch_zip', zipFile);
+                }
+
                 if (uploadType === 'dir') {
                     const dirInput = document.getElementById('batchDirPath');
+                    
                     if (dirInput.files.length === 0) {
                         alert('请选择目录');
                         submitBtn.disabled = false;
                         spinner.classList.add('d-none');
                         return;
                     }
-                    
+                    console.log(dirInput.files);
                     // 添加目录中的所有文件到FormData
                     for (let i = 0; i < dirInput.files.length; i++) {
                         formData.append('batch_files', dirInput.files[i]);
@@ -562,7 +560,7 @@
                     const response = await fetch(`/batch_status/${jobId}`);
                     const data = await response.json();
                     
-                    if (data.status === 'completed' || data.status === 'success') {
+                    if (data.status === 'completed') {
                         // 处理完成
                         completed = true;
                         updateProgressUI(data, progressBar, progressText, batchResults);
