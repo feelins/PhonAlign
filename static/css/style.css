@@ -23,6 +23,8 @@
 .nav-tabs .nav-link.active {
     font-weight: bold;
 }
+
+
 #visualizationResult, #alignmentResult {
     margin-top: 20px;
     display: none;
@@ -104,6 +106,21 @@
     color: #0d6efd;
     background-color: transparent;
     border-bottom: 3px solid #0d6efd;
+}
+
+.batch-results-container {
+    max-height: 500px;
+    overflow-y: auto;
+}
+.batch-result-item {
+    border-left: 4px solid #0d6efd;
+    margin-bottom: 10px;
+}
+.batch-result-item.error {
+    border-left-color: #dc3545;
+}
+.batch-progress {
+    height: 10px;
 }
 
 /* 计算时长卡片特定样式 */

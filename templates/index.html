@@ -17,10 +17,15 @@
     <div class="container">
         <h1 class="text-center mb-4">音频文本对齐服务</h1>
         <!-- 添加导航选项卡 -->
-        <ul class="nav nav-tabs mb-4" id="serviceTabs" role="tablist">
+        <ul class="nav nav-tabs mb-1" id="serviceTabs" role="tablist">
             <li class="nav-item" role="presentation">
                 <button class="nav-link active" id="alignment-tab" data-bs-toggle="tab" data-bs-target="#alignment" type="button" role="tab">
                     <i class="bi-calendar me-2"></i>文本对齐
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="batch-tab" data-bs-toggle="tab" data-bs-target="#batch" type="button" role="tab">
+                    <i class="bi bi-collection me-2"></i>批量对齐
                 </button>
             </li>
             <li class="nav-item" role="presentation">
@@ -98,6 +103,103 @@
                     </div>
                 </div>
             </div>
+
+            <!-- 新增批量音频对齐选项卡 -->
+            <div class="tab-pane fade" id="batch" role="tabpanel">
+                <div class="card shadow">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-collection-play me-2"></i>批量音频文本对齐
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="batchForm" class="needs-validation" novalidate>
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">上传方式</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="uploadType" id="uploadZip" value="zip" checked>
+                                    <label class="form-check-label" for="uploadZip">
+                                        上传ZIP压缩包（包含音频和文本文件）
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="uploadType" id="uploadFiles" value="files">
+                                    <label class="form-check-label" for="uploadFiles">
+                                        分别上传音频和文本文件
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <!-- ZIP上传部分 -->
+                            <div id="zipUploadSection">
+                                <div class="mb-3">
+                                    <label for="batchZipFile" class="form-label fw-bold">上传ZIP文件</label>
+                                    <input class="form-control" type="file" id="batchZipFile" name="batch_zip" accept=".zip">
+                                    <div class="form-text">
+                                        ZIP文件应包含音频文件（.wav/.mp3）和同名文本文件（.txt），例如：audio1.wav 和 audio1.txt
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 分别上传部分 -->
+                            <div id="filesUploadSection" style="display: none;">
+                                <div class="mb-3">
+                                    <label for="batchAudioFiles" class="form-label fw-bold">音频文件</label>
+                                    <input class="form-control" type="file" id="batchAudioFiles" name="batch_audio" multiple accept=".wav,.mp3">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="batchTextFiles" class="form-label fw-bold">文本文件</label>
+                                    <input class="form-control" type="file" id="batchTextFiles" name="batch_text" multiple accept=".txt">
+                                </div>
+                                <div class="alert alert-warning">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>
+                                    音频文件和文本文件必须同名（扩展名不同），例如：audio1.wav 和 audio1.txt
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="outputPrefix" class="form-label fw-bold">输出文件名前缀</label>
+                                <input type="text" class="form-control" id="outputPrefix" name="output_prefix" value="batch_output">
+                            </div>
+                            
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-info text-white" id="batchSubmitBtn">
+                                    <span class="spinner-border spinner-border-sm d-none" id="batchSpinner"></span>
+                                    <i class="bi bi-gear-wide-connected me-2"></i>开始批量处理
+                                </button>
+                            </div>
+                        </form>
+                        
+                        <div class="mt-4 d-none" id="batchProgressSection">
+                            <div class="d-flex justify-content-between mb-2">
+                                <h5>处理进度</h5>
+                                <span id="batchProgressText">0/0</span>
+                            </div>
+                            <div class="progress batch-progress mb-3">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                     id="batchProgressBar" role="progressbar" style="width: 0%"></div>
+                            </div>
+                            
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">处理结果</h5>
+                                </div>
+                                <div class="card-body batch-results-container" id="batchResults">
+                                    <!-- 结果将在这里动态生成 -->
+                                </div>
+                            </div>
+                            
+                            <div class="mt-3 d-none" id="batchDownloadSection">
+                                <button class="btn btn-success" id="downloadAllBtn">
+                                    <i class="bi bi-download me-2"></i>下载全部结果 (ZIP)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
             <!-- 计算时长选项卡 (新增内容) -->
             <div class="tab-pane fade" id="duration" role="tabpanel">
                 <div class="card shadow">
@@ -339,6 +441,184 @@
                 spinner.classList.add('d-none');
             }
         });
+
+        // 新增批量处理相关JavaScript
+        document.addEventListener('DOMContentLoaded', function() {
+            // 切换上传方式
+            document.querySelectorAll('input[name="uploadType"]').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    const zipSection = document.getElementById('zipUploadSection');
+                    const filesSection = document.getElementById('filesUploadSection');
+                    
+                    if (this.value === 'zip') {
+                        zipSection.style.display = 'block';
+                        filesSection.style.display = 'none';
+                    } else {
+                        zipSection.style.display = 'none';
+                        filesSection.style.display = 'block';
+                    }
+                });
+            });
+            
+            // 批量处理表单提交
+            document.getElementById('batchForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const submitBtn = document.getElementById('batchSubmitBtn');
+                const spinner = document.getElementById('batchSpinner');
+                const progressSection = document.getElementById('batchProgressSection');
+                const progressBar = document.getElementById('batchProgressBar');
+                const progressText = document.getElementById('batchProgressText');
+                const batchResults = document.getElementById('batchResults');
+                const downloadSection = document.getElementById('batchDownloadSection');
+                
+                // 重置UI
+                submitBtn.disabled = true;
+                spinner.classList.remove('d-none');
+                batchResults.innerHTML = '';
+                progressBar.style.width = '0%';
+                progressText.textContent = '0/0';
+                downloadSection.classList.add('d-none');
+                
+                // 准备表单数据
+                const formData = new FormData(this);
+                const uploadType = document.querySelector('input[name="uploadType"]:checked').value;
+                
+                try {
+                    const response = await fetch('/batch_align/', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP错误: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    
+                    // 显示进度区域
+                    progressSection.classList.remove('d-none');
+                    
+                    // 开始轮询处理状态
+                    const jobId = data.job_id;
+                    await pollBatchStatus(jobId, progressBar, progressText, batchResults, downloadSection);
+                    
+                } catch (error) {
+                    console.error('批量处理错误:', error);
+                    batchResults.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            批量处理失败: ${error.message}
+                        </div>
+                    `;
+                    progressSection.classList.remove('d-none');
+                } finally {
+                    submitBtn.disabled = false;
+                    spinner.classList.add('d-none');
+                }
+            });
+        });
+        
+        // 轮询批量处理状态
+        async function pollBatchStatus(jobId, progressBar, progressText, batchResults, downloadSection) {
+            let completed = false;
+            let retryCount = 0;
+            const maxRetries = 10;
+            
+            while (!completed && retryCount < maxRetries) {
+                try {
+                    const response = await fetch(`/batch_status/${jobId}`);
+                    const data = await response.json();
+                    
+                    if (data.status === 'completed') {
+                        // 处理完成
+                        completed = true;
+                        updateProgressUI(data, progressBar, progressText, batchResults);
+                        
+                        // 显示下载按钮
+                        if (data.result_zip) {
+                            const downloadBtn = document.getElementById('downloadAllBtn');
+                            downloadBtn.onclick = () => {
+                                window.location.href = `/download_batch/${jobId}/${data.result_zip}`;
+                            };
+                            downloadSection.classList.remove('d-none');
+                        }
+                        
+                        // 添加成功消息
+                        batchResults.innerHTML += `
+                            <div class="alert alert-success">
+                                <i class="bi bi-check-circle me-2"></i>
+                                批量处理完成！共处理 ${data.total} 个文件，成功 ${data.success_count} 个，失败 ${data.error_count} 个。
+                            </div>
+                        `;
+                    } else if (data.status === 'processing') {
+                        // 更新进度
+                        updateProgressUI(data, progressBar, progressText, batchResults);
+                        await new Promise(resolve => setTimeout(resolve, 2000)); // 2秒后再次检查
+                    } else if (data.status === 'failed') {
+                        // 处理失败
+                        completed = true;
+                        batchResults.innerHTML = `
+                            <div class="alert alert-danger">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                批量处理失败: ${data.message || '未知错误'}
+                            </div>
+                        `;
+                    }
+                } catch (error) {
+                    console.error('轮询错误:', error);
+                    retryCount++;
+                    if (retryCount >= maxRetries) {
+                        batchResults.innerHTML += `
+                            <div class="alert alert-danger">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                获取处理状态失败: ${error.message}
+                            </div>
+                        `;
+                        break;
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 2000)); // 错误后等待2秒重试
+                }
+            }
+        }
+        
+        // 更新进度UI
+        function updateProgressUI(data, progressBar, progressText, batchResults) {
+            const progress = Math.round((data.processed / data.total) * 100);
+            progressBar.style.width = `${progress}%`;
+            progressText.textContent = `${data.processed}/${data.total}`;
+            
+            // 更新结果列表
+            if (data.latest_results && data.latest_results.length > 0) {
+                data.latest_results.forEach(result => {
+                    const resultDiv = document.createElement('div');
+                    resultDiv.className = `batch-result-item ${result.status === 'error' ? 'error' : ''}`;
+                    resultDiv.innerHTML = `
+                        <div class="p-3">
+                            <h6 class="mb-1">
+                                ${result.filename}
+                                <span class="badge ${result.status === 'success' ? 'bg-success' : 'bg-danger'} float-end">
+                                    ${result.status === 'success' ? '成功' : '失败'}
+                                </span>
+                            </h6>
+                            <small class="text-muted">${result.message || ''}</small>
+                            ${result.download_link ? `
+                            <div class="mt-2">
+                                <a href="${result.download_link}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-download me-1"></i>下载
+                                </a>
+                            </div>
+                            ` : ''}
+                        </div>
+                    `;
+                    batchResults.appendChild(resultDiv);
+                });
+            }
+        }
     </script>
 </body>
 </html>
