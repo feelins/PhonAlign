@@ -489,37 +489,30 @@ def batch_align():
             )
             
         # 处理分别上传的音频和文本文件
-        elif upload_type == 'files' and 'batch_audio' in request.files and 'batch_text' in request.files:
-            audio_files = request.files.getlist('batch_audio')
-            text_files = request.files.getlist('batch_text')
-            
-            if not audio_files or audio_files[0].filename == '':
-                return jsonify({'error': 'No audio files selected'}), 400
-                
-            if not text_files or text_files[0].filename == '':
-                return jsonify({'error': 'No text files selected'}), 400
-            
+        elif upload_type == 'dir' and 'batch_files' in request.files:
             # 保存上传的文件
-            audio_paths = []
-            text_paths = []
+            uploaded_files = request.files.getlist('batch_files')
             
-            for audio_file in audio_files:
-                if allowed_file(audio_file.filename):
-                    path = os.path.join(upload_dir, secure_filename(audio_file.filename))
-                    audio_file.save(path)
-                    audio_paths.append(path)
-            
-            for text_file in text_files:
-                if text_file.filename.lower().endswith('.txt'):
-                    path = os.path.join(upload_dir, secure_filename(text_file.filename))
-                    text_file.save(path)
-                    text_paths.append(path)
-            
-            # 创建文件对
+            # 创建文件对 (音频文件 -> 对应的文本文件)
             file_pairs = []
-            for audio_path in audio_paths:
+            audio_files = []
+            text_files = []
+            
+            # 分类音频和文本文件
+            for file in uploaded_files:
+                filename = secure_filename(file.filename)
+                filepath = os.path.join(upload_dir, filename)
+                file.save(filepath)
+                
+                if filename.lower().endswith(('.wav', '.mp3')):
+                    audio_files.append(filepath)
+                elif filename.lower().endswith('.txt'):
+                    text_files.append(filepath)
+            
+            # 配对文件
+            for audio_path in audio_files:
                 base_name = os.path.splitext(os.path.basename(audio_path))[0]
-                matching_text = next((t for t in text_paths 
+                matching_text = next((t for t in text_files 
                                    if os.path.splitext(os.path.basename(t))[0] == base_name), None)
                 if matching_text:
                     file_pairs.append((audio_path, matching_text))
@@ -582,8 +575,13 @@ def batch_status(job_id):
     }
     
     # 如果任务完成，添加结果ZIP信息
-    if job['status'] == 'completed' and job['result_zip']:
+    if job['status'] in ['completed', 'success'] and job.get('result_zip'):
         response['result_zip'] = job['result_zip']
+    
+    # 如果所有任务已完成但状态未更新（保险机制）
+    # if job['status'] == 'processing' and job['processed'] >= job['total']:
+    #     job['status'] = 'completed'
+    #     response['status'] = 'completed'
     
     return jsonify(response)
 
@@ -664,5 +662,5 @@ def download_file(unique_id, filename):
 
 if __name__ == '__main__':
     # 启动时清理旧文件
-    cleanup_temp_files()
+    # cleanup_temp_files()
     app.run(host='127.0.0.1', port=8000, debug=True)
