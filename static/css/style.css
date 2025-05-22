@@ -103,8 +103,8 @@
 }
 
 .nav-tabs .nav-link.active {
-    color: #0d6efd;
-    background-color: rgba(41, 179, 197, 0.411);
+    color: #1e07f0;
+    background-color: rgba(207, 192, 154, 0.18);
     border-bottom: 3px solid #0d6efd;
 }
 
@@ -210,6 +210,30 @@
     }
 }
 
+/* 音素比较样式 */
+.font-monospace {
+    font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+/* 音素标签样式 */
+.badge {
+    font-size: 0.9em;
+    padding: 0.5em 0.75em;
+    margin: 0.2em;
+}
+
+/* 比较结果卡片 */
+#compareResults .card {
+    margin-bottom: 1rem;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    #compareForm .col-md-6 {
+        margin-bottom: 1rem;
+    }
+}
+
 /* 图标占位(实际使用时可以添加Bootstrap图标字体) */
 .bi::before {
     display: inline-block;
@@ -241,3 +265,21 @@
 .bi-exclamation-octagon::before {
     mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.54.146A.5.5 0 0 1 4.893 0h6.214a.5.5 0 0 1 .353.146l4.394 4.394a.5.5 0 0 1 .146.353v6.214a.5.5 0 0 1-.146.353l-4.394 4.394a.5.5 0 0 1-.353.146H4.893a.5.5 0 0 1-.353-.146L.146 11.46A.5.5 0 0 1 0 11.107V4.893a.5.5 0 0 1 .146-.353L4.54.146zM5.1 1 1 5.1v5.8L5.1 15h5.8l4.1-4.1V5.1L10.9 1H5.1z'/%3E%3Cpath d='M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z'/%3E%3C/svg%3E");
 }
+
+/* 页脚样式 */
+footer a:hover {
+    color: #0d6efd !important;
+    transition: color 0.2s;
+}
+
+/* 固定底部样式（可选） */
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+.container {
+    flex: 1;
+}
+
+
