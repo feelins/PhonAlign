@@ -1,0 +1,80 @@
+<!-- 音素比较面板 -->
+<div class="tab-pane fade" id="listcompare-content" role="tabpanel"
+    aria-labelledby="listcompare-tab">
+    <div class="card shadow">
+        <div class="card-header bg-secondary text-white">
+            <h3 class="card-title mb-0">
+                <i class="bi bi-arrow-left-right me-2"></i>音素比较
+            </h3>
+        </div>
+        <div class="card-body">
+            <form id="compareForm" class="mb-4">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="phonemesA" class="form-label">音素列表 A</label>
+                        <textarea class="form-control font-monospace" id="phonemesA"
+                                rows="8" placeholder="输入音素列表，用空格或换行分隔"></textarea>
+                        <div class="form-text">示例: aa b c d dh eh</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="phonemesB" class="form-label">音素列表 B</label>
+                        <textarea class="form-control font-monospace" id="phonemesB"
+                                rows="8" placeholder="输入音素列表，用空格或换行分隔"></textarea>
+                        <div class="form-text">示例: aa b c d dh ih</div>
+                    </div>
+                </div>
+                <div class="d-grid gap-2 mt-3">
+                    <button type="submit" class="btn btn-primary" id="compareBtn">
+                        <i class="bi bi-arrow-left-right me-2"></i>比较音素
+                    </button>
+                </div>
+            </form>
+
+            <div id="compareResults" class="d-none">
+                <div class="alert" id="compareSummary">
+                    <!-- 比较结果摘要将在这里显示 -->
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-info text-white">
+                                A 独有的音素
+                            </div>
+                            <div class="card-body">
+                                <div id="onlyInA" class="d-flex flex-wrap gap-2">
+                                    <!-- A独有的音素将在这里显示 -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-info text-white">
+                                B 独有的音素
+                            </div>
+                            <div class="card-body">
+                                <div id="onlyInB" class="d-flex flex-wrap gap-2">
+                                    <!-- B独有的音素将在这里显示 -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mt-3">
+                    <div class="card-header bg-success text-white">
+                        共同音素
+                    </div>
+                    <div class="card-body">
+                        <div id="commonPhonemes" class="d-flex flex-wrap gap-2">
+                            <!-- 共同音素将在这里显示 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="compareError" class="alert alert-danger mt-3 d-none"></div>
+        </div>
+    </div>
+</div><!-- 音素比较面板 -->

@@ -1,0 +1,90 @@
+<!-- 新增批量音频对齐选项卡 -->
+<div class="tab-pane fade" id="batch" role="tabpanel">
+    <div class="card shadow">
+        <div class="card-header bg-info text-white">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-collection-play me-2"></i>批量音频文本对齐
+            </h5>
+        </div>
+        <div class="card-body">
+            <form id="batchForm" class="needs-validation" novalidate>
+                <div class="mb-4">
+                    <label class="form-label fw-bold">上传方式</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="uploadType" id="uploadZip" value="zip" checked>
+                        <label class="form-check-label" for="uploadZip">
+                            上传ZIP压缩包（包含音频和文本文件）
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="uploadType" id="uploadDir" value="dir">
+                        <label class="form-check-label" for="uploadDir">
+                            选择包含音频和文本文件的目录
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- ZIP上传部分 -->
+                <div id="zipUploadSection">
+                    <div class="mb-3">
+                        <label for="batchZipFile" class="form-label fw-bold">上传ZIP文件</label>
+                        <input class="form-control" type="file" id="batchZipFile" name="batch_zip" accept=".zip">
+                        <div class="form-text">
+                            ZIP文件应包含音频文件（.wav/.mp3）和同名文本文件（.txt），例如：audio1.wav 和 audio1.txt
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 分别上传部分修改为目录 -->
+                <div id="dirUploadSection" style="display: none;">
+                    <div class="mb-3">
+                        <label for="batchDirPath" class="form-label fw-bold">选择目录</label>
+                        <input class="form-control" type="file" id="batchDirPath" name="batch_dir" webkitdirectory directory multiple>
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            音频文件和文本文件必须同名（扩展名不同），例如：audio1.wav 和 audio1.txt
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="outputPrefix" class="form-label fw-bold">输出文件名前缀</label>
+                    <input type="text" class="form-control" id="outputPrefix" name="output_prefix" value="batch_output">
+                </div>
+                
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-info text-white" id="batchSubmitBtn">
+                        <span class="spinner-border spinner-border-sm d-none" id="batchSpinner"></span>
+                        <i class="bi bi-gear-wide-connected me-2"></i>开始批量处理
+                    </button>
+                </div>
+            </form>
+            
+            <div class="mt-4 d-none" id="batchProgressSection">
+                <div class="d-flex justify-content-between mb-2">
+                    <h5>处理进度</h5>
+                    <span id="batchProgressText">0/0</span>
+                </div>
+                <div class="progress batch-progress mb-3">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                            id="batchProgressBar" role="progressbar" style="width: 0%"></div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">处理结果</h5>
+                    </div>
+                    <div class="card-body batch-results-container" id="batchResults">
+                        <!-- 结果将在这里动态生成 -->
+                    </div>
+                </div>
+                
+                <div class="mt-3 d-none" id="batchDownloadSection">
+                    <button class="btn btn-success" id="downloadAllBtn">
+                        <i class="bi bi-download me-2"></i>下载全部结果 (ZIP)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

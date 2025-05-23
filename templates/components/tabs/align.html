@@ -1,0 +1,67 @@
+<!-- 文本对齐选项卡 (原有内容) -->
+<div class="tab-pane fade show active" id="alignment" role="tabpanel">
+    <div class="card">
+        <div class="card-header">上传文件</div>
+        <div class="card-body">
+            <form id="alignmentForm">
+                <div class="form-group">
+                    <label for="audio_file" class="form-label">音频文件 (WAV/MP3)</label>
+                    <input class="form-control" type="file" id="audio_file" name="audio_file" accept=".wav,.mp3" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="text_content" class="form-label">文本内容</label>
+                    <textarea class="form-control" id="text_content" name="text_content" rows="3" required placeholder="请输入要与音频对齐的文本">一抹脸上，小友发现全是鲜血</textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="output_name" class="form-label">输出文件名</label>
+                    <input type="text" class="form-control" id="output_name" name="output_name" value="output" required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">
+                    <span class="spinner-border spinner-border-sm" id="loadingSpinner" style="display: none;" role="status" aria-hidden="true"></span>
+                    开始对齐
+                </button>
+                
+                <div class="progress mt-3" id="progressBar" style="display: none;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="resultSection" style="display: none;">
+        <div class="card mt-4">
+            <div class="card-header">处理结果</div>
+            <div class="card-body">
+                <div id="statusMessage" class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> 处理正在进行中，请稍候...
+                </div>
+                
+                <div class="d-flex gap-2">
+                    <a id="downloadTextgridBtn" class="btn btn-success btn-download" style="display: none;">
+                        <i class="bi bi-download"></i> 下载TextGrid文件
+                    </a>
+                    <a id="downloadAudioBtn" class="btn btn-outline-primary btn-download" style="display: none;">
+                        <i class="bi bi-download"></i> 下载音频文件
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="visualization-container">
+            <div class="card">
+                <div class="card-header">可视化结果</div>
+                <div class="visualization-card">
+                    <div class="visualization-title">音频频谱图</div>
+                    <img id="spectrogram-img" src="" alt="频谱图">
+                </div>
+                <div class="visualization-card">
+                    <div class="visualization-title">TextGrid对齐结果</div>
+                    <img id="textgrid-img" src="" alt="TextGrid可视化">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
